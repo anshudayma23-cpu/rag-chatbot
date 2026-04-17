@@ -30,32 +30,42 @@ The Flask application handles all RAG queries and connects to Chroma Cloud and G
 
 *   **Service Type**: Web Service (Python).
 *   **Build Command**: `pip install -r requirements.txt`
-*   **Start Command**: `gunicorn --chdir src/ui app:app`
+*   **Start Command**: `gunicorn --chdir src/ui app:app --timeout 120` (Timeout added for model loading).
+*   **Root Directory**: Leave as root `/`.
+*   **Included Files**: The system uses `Procfile` and `runtime.txt` located in the root to configure the environment automatically.
 *   **Environment Variables**:
-    *   `GROQ_API_KEY`: For Llama-3 inference.
-    *   `CHROMA_API_KEY`: For cloud vector storage access.
-    *   `CHROMA_TENANT` / `CHROMA_DATABASE`: For multi-tenant isolation.
-    *   `PYTHON_VERSION`: `3.10.x` or higher.
+    *   `GROQ_API_KEY`: Required for Llama-3 inference.
+    *   `CHROMA_API_KEY`: Required for cloud collection access.
+    *   `CHROMA_TENANT`: (e.g., `default_tenant`)
+    *   `CHROMA_DATABASE`: (e.g., `default_database`)
+    *   `PORT`: Automatically set by Render (the app is configured to listen on `os.environ.get("PORT")`).
 
 ### 2. Frontend (Vercel)
-The Next.js application provides a premium user experience and communicates with Render.
+The Next.js application provides the user interface and communicates with Render.
 
 *   **Framework Preset**: Next.js.
 *   **Root Directory**: `frontend/`
+*   **Build Command**: `next build`
 *   **Environment Variables**:
-    *   `NEXT_PUBLIC_API_URL`: The URL of your Render backend.
-*   **Build Command**: `npm run build`
+    *   `NEXT_PUBLIC_API_URL`: The full URL of your Render backend (e.g., `https://fundbot-api.onrender.com`). **Note**: Ensure this does NOT have a trailing slash.
 
-### 3. Scheduler (GitHub Actions)
-Automates the "Ground Truth" updates every morning.
+### 3. Scheduler & Data Ingestion (GitHub Actions)
+The "Ground Truth" is refreshed daily at **9:15 AM IST** via the `ingest_data.yml` workflow.
 
-*   **Trigger**: Daily at 9:15 AM IST (`3:45 AM UTC`).
-*   **Actions Workflow**: `.github/workflows/ingest_data.yml`.
-*   **Required Secrets** (Repo Settings -> Secrets):
-    *   `CHROMA_API_KEY`
-    *   `CHROMA_TENANT`
-    *   `CHROMA_DATABASE`
-    *   `GROQ_API_KEY` (if used for summerization during ingestion).
+*   **Action Secrets** (GitHub Repo -> Settings -> Secrets and variables -> Actions):
+    *   Add `CHROMA_API_KEY`, `CHROMA_TENANT`, `CHROMA_DATABASE`, and `GROQ_API_KEY`.
+*   **Playwright**: The workflow automatically installs browser dependencies (`playwright install chromium --with-deps`) on the Ubuntu runner.
+
+---
+
+## 🔐 Security & Production Optimizations
+
+*   **CORS**: Currently set to `CORS(app)` (Open). For production, update `src/ui/app.py` to:
+    ```python
+    CORS(app, resources={r"/api/*": {"origins": "https://your-vercel-domain.vercel.app"}})
+    ```
+*   **Resource Management**: The backend pre-loads embedding models into memory on startup (`shared_state.initialize()`). On Render's Free Tier, ensure you have at least 512MB RAM; otherwise, the process may OOM.
+*   **Database**: Ensure the `CHROMA_API_KEY` has `write` permissions for the ingestion pipeline and `read` permissions for the backend service.
 
 ---
 

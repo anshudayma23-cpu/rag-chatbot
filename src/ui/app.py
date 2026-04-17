@@ -118,14 +118,14 @@ def export_chat():
         return jsonify({"error": str(e)}), 500
 
 
+# Pre-initialize shared state to eliminate first-request latency
+# This runs when the module is imported (e.g., by gunicorn)
+shared_state.initialize()
+
 if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
     print("=" * 60)
-    print("HDFC Mutual Fund RAG Chatbot - Web UI")
+    print(f"HDFC Mutual Fund RAG Chatbot - Running on port {port}")
     print("=" * 60)
     
-    # Pre-initialize shared state to eliminate first-request latency
-    shared_state.initialize()
-    
-    print("Open http://localhost:5000 in your browser")
-    print("=" * 60)
-    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False) # Disable reloader to prevent double initialization
+    app.run(host="0.0.0.0", port=port, debug=False)
