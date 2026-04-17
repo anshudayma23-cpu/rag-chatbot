@@ -288,10 +288,13 @@ class StaticRefusalEngine:
             "Mutual fund investments are subject to market risks. Please read all scheme related documents carefully.\n\n"
             "**Disclaimer**: Facts-only. No investment advice."
         ),
-        "OUT_OF_SCOPE": (
-            "Hello! I am your HDFC Mutual Fund Factual Assistant. How can I help you today with fund data?\n\n"
-            "I can only provide factual information about HDFC Mutual Fund schemes. "
-            "Please ask about NAV, AUM, expense ratios, fund managers, or other fund-specific data."
+        "GREETING": (
+            "Hi! How can I help you today?\n\n"
+            "Please clarify what specific information about HDFC Mutual Funds you're looking for?\n\n"
+            "For example, you can ask:\n"
+            "- 'What is the NAV of HDFC Small Cap Fund?'\n"
+            "- 'Who manages HDFC Defence Fund?'\n"
+            "- 'What is the exit load for HDFC Multi Cap Fund?'"
         ),
         "UNCLEAR": (
             "I'm not sure I understood your question. Could you please clarify what specific "
