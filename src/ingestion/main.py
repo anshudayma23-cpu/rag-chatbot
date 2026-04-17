@@ -49,6 +49,9 @@ async def run_pipeline(log_to_file: bool = True):
         logger.info("=" * 60)
         
     except Exception as e:
+        print(f"\n❌ FATAL ERROR IN PIPELINE: {e}")
+        import traceback
+        traceback.print_exc()
         logger.error(f"Pipeline failed with error: {e}", exc_info=True)
         sys.exit(1)
 

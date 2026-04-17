@@ -22,8 +22,8 @@ try:
     tokenizer = AutoTokenizer.from_pretrained("BAAI/bge-small-en-v1.5")
     def token_len(text: str) -> int:
         return len(tokenizer.encode(text, add_special_tokens=False))
-except ImportError:
-    logger.warning("transformers not found. Using character length for splitting.")
+except Exception as e:
+    logger.warning(f"Could not load tokenizer: {e}. Using character length for splitting.")
     token_len = len
 
 
