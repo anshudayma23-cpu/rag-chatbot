@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FundBot | HDFC Mutual Fund Assistant</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">📊</div>
+                    <span class="logo-text">FundBot</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active">
+                    <span class="nav-icon">💬</span>
+                    <span>New Chat</span>
+                </a>
+                <a href="#" class="nav-item" onclick="clearChat()">
+                    <span class="nav-icon">🗑️</span>
+                    <span>Clear History</span>
+                </a>
+                <a href="#" class="nav-item" onclick="exportChat()">
+                    <span class="nav-icon">📥</span>
+                    <span>Export Chat</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-section">
+                <h4>Quick Actions</h4>
+                <div class="quick-actions">
+                    <button class="action-chip" onclick="askQuestion('What is the NAV of HDFC Small Cap Fund?')">
+                        NAV Query
+                    </button>
+                    <button class="action-chip" onclick="askQuestion('What is the expense ratio of HDFC Defence Fund?')">
+                        Expense Ratio
+                    </button>
+                    <button class="action-chip" onclick="askQuestion('Who manages HDFC Multi Cap Fund?')">
+                        Fund Manager
+                    </button>
+                    <button class="action-chip" onclick="askQuestion('What is the exit load for HDFC Mid Cap Fund?')">
+                        Exit Load
+                    </button>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="compliance-badge">
+                    <span class="badge-icon">🔒</span>
+                    <span>SEBI Compliant</span>
+                </div>
+                <p class="session-id">Session: <span id="sessionId">...</span></p>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="main-content">
+            <!-- Top Header -->
+            <header class="top-header">
+                <div class="header-title">
+                    <h2>Mutual Fund Assistant</h2>
+                    <span class="status-badge">
+                        <span class="status-dot"></span>
+                        Facts-Only Mode
+                    </span>
+                </div>
+                <div class="header-actions">
+                    <button class="header-btn" title="Help">?</button>
+                </div>
+            </header>
+
+            <!-- Welcome Section -->
+            <div class="welcome-section" id="welcomeSection">
+                <h1>Welcome back, Investor.</h1>
+                <p class="subtitle">I'm ready to answer factual questions about HDFC Mutual Funds.</p>
+                
+                <div class="suggestion-cards">
+                    <div class="suggestion-card" onclick="askQuestion('What is the NAV of HDFC Small Cap Fund?')">
+                        <div class="card-icon">💰</div>
+                        <p>"What is the NAV of HDFC Small Cap Fund?"</p>
+                    </div>
+                    <div class="suggestion-card" onclick="askQuestion('Compare HDFC Defence and HDFC Multi Cap Fund')">
+                        <div class="card-icon">⚠️</div>
+                        <p>"Compare HDFC Defence and Multi Cap"</p>
+                        <span class="card-note">(Will refuse - no comparisons)</span>
+                    </div>
+                    <div class="suggestion-card" onclick="askQuestion('What is the minimum SIP amount?')">
+                        <div class="card-icon">💳</div>
+                        <p>"What is the minimum SIP amount?"</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Messages -->
+            <div class="chat-container" id="chatContainer">
+                <div class="messages" id="chatMessages">
+                    <!-- Messages will appear here -->
+                </div>
+            </div>
+
+            <!-- Typing Indicator -->
+            <div class="typing-area" id="typingIndicator" style="display: none;">
+                <div class="typing-bubble">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-section">
+                <div class="input-wrapper">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        class="main-input"
+                        placeholder="Ask a question about HDFC Mutual Funds..."
+                        onkeypress="handleKeyPress(event)"
+                        autocomplete="off"
+                    >
+                    <button class="send-btn" onclick="sendMessage()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                    </button>
+                </div>
+                <div class="input-meta">
+                    <span class="disclaimer">FundBot provides factual information only. Not investment advice.</span>
+                    <span class="char-count" id="charCount">0/500</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
