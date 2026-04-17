@@ -7,10 +7,9 @@ langchain-community
 langchain-chroma
 chromadb
 python-dotenv
-asyncio
 markdownify
 transformers
-torch==2.1.0+cpu
+torch
 requests
 sentence-transformers
 langchain-huggingface
