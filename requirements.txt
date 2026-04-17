@@ -8,10 +8,7 @@ langchain-chroma
 chromadb
 python-dotenv
 markdownify
-transformers
-torch
 requests
-sentence-transformers
 langchain-huggingface
 rank_bm25
 langchain-groq

@@ -37,11 +37,11 @@ class DataProcessor:
             is_separator_regex=False,
         )
 
-        # Phase 1.3: BGE-small-en-v1.5 (Free local model)
-        # 1. Initialize Vector Retriever (Using BGE-small)
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name="BAAI/bge-small-en-v1.5",
-            model_kwargs={'device': 'cpu'}
+        # Phase 1.3: Hugging Face Inference API (Zero RAM for Render)
+        from langchain_huggingface import HuggingFaceEndpointEmbeddings
+        self.embeddings = HuggingFaceEndpointEmbeddings(
+            model="BAAI/bge-small-en-v1.5",
+            huggingfacehub_api_token=os.getenv("HUGGINGFACE_API_KEY")
         )
         self.persist_directory = persist_directory
 

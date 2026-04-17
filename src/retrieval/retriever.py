@@ -3,7 +3,7 @@ import sys
 from typing import List
 from langchain_community.retrievers import BM25Retriever
 from langchain_classic.retrievers import EnsembleRetriever
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from langchain_core.documents import Document
 
 # Add parent directories to path
@@ -17,10 +17,10 @@ class HybridRetriever:
     def __init__(self, persist_directory: str = "docs/vectordb", collection_name: str = "mutual_fund_faqs"):
         self.db_manager = VectorDBManager(persist_directory=persist_directory, collection_name=collection_name)
         
-        # 1. Initialize Vector Retriever (Using Free local BGE model)
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name="BAAI/bge-small-en-v1.5",
-            model_kwargs={'device': 'cpu'}
+        # 1. Initialize Vector Retriever (Using Free Inference API to save RAM)
+        self.embeddings = HuggingFaceEndpointEmbeddings(
+            model="BAAI/bge-small-en-v1.5",
+            huggingfacehub_api_token=os.getenv("HUGGINGFACE_API_KEY")
         )
         
         # 2. Get all documents for BM25 (Sparse Retrieval)
