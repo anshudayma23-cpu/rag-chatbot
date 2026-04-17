@@ -5,13 +5,20 @@ import argparse
 from datetime import datetime
 
 # Add project root to path
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from utils.logger import setup_logger
+# This ensures that 'src' can be treated as a package if needed
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, project_root)
 
-# Add the current directory to path so we can import scraper/processor
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from scraper import GrowwScraper
-from processor import DataProcessor
+try:
+    from src.utils.logger import setup_logger
+    from src.ingestion.scraper import GrowwScraper
+    from src.ingestion.processor import DataProcessor
+except ImportError:
+    # Fallback for different working directories
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+    from src.utils.logger import setup_logger
+    from src.ingestion.scraper import GrowwScraper
+    from src.ingestion.processor import DataProcessor
 
 async def run_pipeline(log_to_file: bool = True):
     """Orchestrates the ingestion pipeline."""

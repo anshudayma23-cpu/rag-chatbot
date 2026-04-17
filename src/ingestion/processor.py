@@ -11,9 +11,9 @@ import logging
 
 logger = logging.getLogger("ingestion")
 
-# Add database module to path
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "database"))
-from chroma_manager import VectorDBManager
+# Add project root to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from src.database.chroma_manager import VectorDBManager
 
 load_dotenv()
 
