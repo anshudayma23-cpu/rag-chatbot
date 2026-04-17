@@ -11,6 +11,7 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       DEBUG: pw:api
+    steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
