@@ -444,7 +444,7 @@ class RateLimiter:
     WINDOW_SECONDS = 600  # 10 minutes
     MAX_CONCURRENT = 5
     MIN_QUERY_INTERVAL = 1.0  # seconds between queries
-    MIN_QUERY_LENGTH = 10
+    MIN_QUERY_LENGTH = 2
     MAX_QUERY_LENGTH = 500
     
     def __init__(self):
