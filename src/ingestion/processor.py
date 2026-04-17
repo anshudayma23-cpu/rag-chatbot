@@ -37,9 +37,12 @@ class DataProcessor:
             is_separator_regex=False,
         )
 
-        # Phase 1.3: OpenAI Embeddings (RAM optimized for Render)
-        from langchain_openai import OpenAIEmbeddings
-        self.embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+        # Phase 1.3: BGE-small-en-v1.5 (Free local model)
+        # 1. Initialize Vector Retriever (Using BGE-small)
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name="BAAI/bge-small-en-v1.5",
+            model_kwargs={'device': 'cpu'}
+        )
         self.persist_directory = persist_directory
 
         # Phase 1.4 & 1.5: Dedicated DB Manager

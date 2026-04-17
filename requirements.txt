@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 playwright
 beautifulsoup4
 langchain
@@ -9,7 +10,7 @@ python-dotenv
 asyncio
 markdownify
 transformers
-torch
+torch==2.1.0+cpu
 requests
 sentence-transformers
 langchain-huggingface
