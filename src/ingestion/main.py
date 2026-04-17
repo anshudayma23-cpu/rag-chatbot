@@ -4,18 +4,19 @@ import os
 import argparse
 from datetime import datetime
 
-# Add project root to path
-# This ensures that 'src' can be treated as a package if needed
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, project_root)
+# Path setup: Add the current working directory (project root) to sys.path
+sys.path.append(os.getcwd())
+
+print(f"--- Pipeline Debug: CWD={os.getcwd()} Path={sys.path[:3]} ---")
 
 try:
     from src.utils.logger import setup_logger
     from src.ingestion.scraper import GrowwScraper
     from src.ingestion.processor import DataProcessor
-except ImportError:
-    # Fallback for different working directories
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+except ImportError as e:
+    print(f"--- Pipeline Debug: Import Error: {e} ---")
+    # Immediate fallback attempt
+    sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
     from src.utils.logger import setup_logger
     from src.ingestion.scraper import GrowwScraper
     from src.ingestion.processor import DataProcessor
