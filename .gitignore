@@ -115,7 +115,10 @@ docs/vectordb/
 temp_*.txt
 *.json
 !package.json
-!composer.json
+!tsconfig.json
+!*.config.js
+!*.config.ts
+!*.config.mjs
 
 # IDEs
 .vscode/
