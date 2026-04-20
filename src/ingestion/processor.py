@@ -150,20 +150,32 @@ class DataProcessor:
         """
         Processes raw scraped data through chunking, hashing, and embedding.
         Supports both new structured format and legacy markdown format.
-        """
-        all_ids = []
-        all_documents = []
-        all_metadatas = []
 
+        IMPORTANT: Structured chunks (NAV data) are ALWAYS upserted by ID so
+        that the `last_updated` date and NAV value stay current every day.
+        Hash-dedup is intentionally skipped for structured chunks — the upsert
+        overwrites the old record in-place which is exactly what we want for
+        daily live data.
+
+        Legacy markdown chunks still use hash-dedup to avoid redundant embeds.
+        """
+        # --- Structured (live NAV) chunks — always upsert ---
+        structured_ids, structured_docs, structured_metas = [], [], []
+
+        # --- Legacy markdown chunks — hash-deduped ---
+        legacy_ids, legacy_docs, legacy_metas = [], [], []
         existing_hashes = set(self.db_manager.get_existing_hashes())
+
         logger.info(f"Processing {len(raw_data)} funds...")
 
         for entry in raw_data:
             scheme_name = entry.get("scheme_name", "Unknown")
 
-            # Detect format: new structured vs legacy markdown
             if "structured_data" in entry:
-                # --- New structured format: section-based chunking ---
+                # ---- New structured format: ALWAYS upsert by ID ----
+                # Rationale: NAV, AUM and expense ratio change every market day.
+                # Skipping an upsert based on hash sameness would leave the
+                # `last_updated` field stale, so we unconditionally refresh.
                 chunks = self._create_structured_chunks(entry)
                 for chunk in chunks:
                     chunk_text = chunk["text"]
@@ -173,54 +185,78 @@ class DataProcessor:
 
                     metadata = chunk["metadata"]
                     metadata["chunk_hash"] = chunk_hash
-                    metadata["chunk_index"] = 0  # Not used for section-based
+                    metadata["chunk_index"] = 0
 
-                    if chunk_hash in existing_hashes:
-                        continue
+                    structured_ids.append(chunk_id)
+                    structured_docs.append(chunk_text)
+                    structured_metas.append(metadata)
 
-                    all_ids.append(chunk_id)
-                    all_documents.append(chunk_text)
-                    all_metadatas.append(metadata)
+                logger.info(
+                    f"  -> {scheme_name}: queued {len(chunks)} structured chunks for upsert"
+                )
+
             else:
-                # --- Legacy markdown format: recursive splitting ---
+                # ---- Legacy markdown format: hash-deduped ----
                 url = entry.get("url")
                 content = entry.get("content")
                 timestamp = entry.get("timestamp")
-
                 chunks = self.text_splitter.split_text(content)
 
+                new_count = 0
                 for i, chunk_text in enumerate(chunks):
                     chunk_hash = self._generate_hash(chunk_text)
+                    if chunk_hash in existing_hashes:
+                        continue  # unchanged — skip embedding
+                    new_count += 1
                     chunk_id = f"{scheme_name}_{i}"
-
                     metadata = {
                         "source_url": url,
                         "scheme_name": scheme_name,
                         "last_updated": timestamp,
                         "chunk_hash": chunk_hash,
-                        "chunk_index": i
+                        "chunk_index": i,
                     }
+                    legacy_ids.append(chunk_id)
+                    legacy_docs.append(chunk_text)
+                    legacy_metas.append(metadata)
 
-                    if chunk_hash in existing_hashes:
-                        continue
+                if new_count:
+                    logger.info(
+                        f"  -> {scheme_name}: {new_count}/{len(chunks)} legacy chunks changed"
+                    )
 
-                    all_ids.append(chunk_id)
-                    all_documents.append(chunk_text)
-                    all_metadatas.append(metadata)
-
-        if all_documents:
-            logger.info(f"Embedding and upserting {len(all_documents)} new/changed chunks...")
-            chunk_embeddings = self.embeddings.embed_documents(all_documents)
-
-            self.db_manager.upsert_documents(
-                ids=all_ids,
-                documents=all_documents,
-                metadatas=all_metadatas,
-                embeddings=chunk_embeddings
+        # --- Embed & upsert structured data (always) ---
+        if structured_docs:
+            logger.info(
+                f"Embedding and upserting {len(structured_docs)} structured (live NAV) chunks..."
             )
-            logger.info("Vector DB update complete.")
-        else:
-            logger.info("No changes detected. Vector DB is already up to date.")
+            embeddings = self.embeddings.embed_documents(structured_docs)
+            self.db_manager.upsert_documents(
+                ids=structured_ids,
+                documents=structured_docs,
+                metadatas=structured_metas,
+                embeddings=embeddings,
+            )
+            logger.info("Structured data upsert complete.")
+
+        # --- Embed & upsert changed legacy chunks ---
+        if legacy_docs:
+            logger.info(
+                f"Embedding and upserting {len(legacy_docs)} changed legacy chunks..."
+            )
+            embeddings = self.embeddings.embed_documents(legacy_docs)
+            self.db_manager.upsert_documents(
+                ids=legacy_ids,
+                documents=legacy_docs,
+                metadatas=legacy_metas,
+                embeddings=embeddings,
+            )
+            logger.info("Legacy data upsert complete.")
+
+        if not structured_docs and not legacy_docs:
+            logger.info("No structured data returned from scraper — check scraper logs.")
+
+        logger.info("Vector DB update complete.")
 
 
 if __name__ == "__main__":

@@ -3,11 +3,13 @@ name: Mutual Fund Data Ingestion
 on:
   schedule:
     - cron: "45 3 * * *" # Runs daily at 9:15 AM IST (3:45 AM UTC)
-  workflow_dispatch: # Allows manual triggering
+  workflow_dispatch: # Allows manual triggering from GitHub UI
 
 jobs:
   ingest:
     runs-on: ubuntu-latest
+    timeout-minutes: 30  # Fail fast if something hangs
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -17,6 +19,17 @@ jobs:
         with:
           python-version: "3.10"
 
+      # ---------------------------------------------------------------
+      # Cache pip installs to speed up subsequent runs
+      # ---------------------------------------------------------------
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
@@ -25,23 +38,96 @@ jobs:
           pip install --upgrade chromadb
           python -m playwright install --with-deps chromium
 
+      # ---------------------------------------------------------------
+      # Sanity check: print versions so failures are easy to trace
+      # ---------------------------------------------------------------
       - name: Debug Environment
         run: |
-          echo "--- Project Structure ---"
-          ls -R
-          echo "--- Package Versions ---"
-          pip list | grep -E "chromadb|langchain|playwright|torch"
+          echo "--- Python version ---"
+          python --version
+          echo "--- Key package versions ---"
+          pip list | grep -E "chromadb|langchain|playwright|torch|huggingface"
 
-      - name: Check Environment Variables
+      # ---------------------------------------------------------------
+      # Hard-stop if any required secret is missing
+      # ---------------------------------------------------------------
+      - name: Check Required Secrets
         run: |
-          if [ -z "${{ secrets.CHROMA_API_KEY }}" ]; then echo "❌ ERROR: CHROMA_API_KEY is missing in GitHub Secrets"; exit 1; fi
-          if [ -z "${{ secrets.GROQ_API_KEY }}" ]; then echo "❌ ERROR: GROQ_API_KEY is missing in GitHub Secrets"; exit 1; fi
+          MISSING=0
+          if [ -z "${{ secrets.CHROMA_API_KEY }}" ]; then
+            echo "❌ CHROMA_API_KEY is missing from GitHub Secrets"
+            MISSING=1
+          fi
+          if [ -z "${{ secrets.CHROMA_TENANT }}" ]; then
+            echo "❌ CHROMA_TENANT is missing from GitHub Secrets"
+            MISSING=1
+          fi
+          if [ -z "${{ secrets.CHROMA_DATABASE }}" ]; then
+            echo "❌ CHROMA_DATABASE is missing from GitHub Secrets"
+            MISSING=1
+          fi
+          if [ -z "${{ secrets.HUGGINGFACE_API_KEY }}" ]; then
+            echo "❌ HUGGINGFACE_API_KEY is missing from GitHub Secrets"
+            MISSING=1
+          fi
+          if [ -z "${{ secrets.GROQ_API_KEY }}" ]; then
+            echo "❌ GROQ_API_KEY is missing from GitHub Secrets"
+            MISSING=1
+          fi
+          if [ "$MISSING" -eq 1 ]; then exit 1; fi
           echo "✅ All required secrets found."
 
+      # ---------------------------------------------------------------
+      # Run the ingestion pipeline (attempt 1)
+      # ---------------------------------------------------------------
       - name: Run Ingestion Pipeline
+        id: ingest
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
           CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
           CHROMA_DATABASE: ${{ secrets.CHROMA_DATABASE }}
-        run: python src/ingestion/main.py --no-file-log
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+        run: |
+          echo "🚀 Starting ingestion pipeline — $(date -u '+%Y-%m-%d %H:%M UTC')"
+          python src/ingestion/main.py --no-file-log
+
+      # ---------------------------------------------------------------
+      # Retry once on failure (Groww / HF API transient errors)
+      # ---------------------------------------------------------------
+      - name: Retry Ingestion on Failure
+        if: failure() && steps.ingest.outcome == 'failure'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
+          CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
+          CHROMA_DATABASE: ${{ secrets.CHROMA_DATABASE }}
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+        run: |
+          echo "⚠️  First attempt failed. Waiting 60 s before retry..."
+          sleep 60
+          echo "🔄 Retry attempt — $(date -u '+%Y-%m-%d %H:%M UTC')"
+          python src/ingestion/main.py --no-file-log
+
+      # ---------------------------------------------------------------
+      # Quick verification: confirm at least 10 docs are in Chroma
+      # ---------------------------------------------------------------
+      - name: Verify Chroma Collection Count
+        env:
+          CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
+          CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
+          CHROMA_DATABASE: ${{ secrets.CHROMA_DATABASE }}
+        run: |
+          python - <<'EOF'
+          import os, sys
+          sys.path.append(os.getcwd())
+          from src.database.chroma_manager import VectorDBManager
+
+          db = VectorDBManager()
+          stats = db.get_collection_stats()
+          count = stats["count"]
+          print(f"✅ Chroma collection '{stats['name']}' has {count} documents.")
+          if count < 10:
+              print("❌ Document count looks too low — ingestion may have partially failed.")
+              sys.exit(1)
+          EOF

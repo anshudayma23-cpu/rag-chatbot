@@ -50,19 +50,33 @@ class GrowwScraper:
 
     def _extract_nav(self, text):
         """Extract NAV value and date from the metrics block."""
-        nav_date = None
         nav_value = None
-        match = re.search(r'NAV:\s*(.+)', text)
-        if match:
-            nav_date = self._clean_text(match.group(1))
-        # NAV value is on a line starting with the rupee symbol after "NAV:"
+        nav_date = None
+
+        # Groww renders NAV as: "NAV: 17 Apr '26" followed by "₹27.06"
+        # Pattern 1: DD Mon 'YY  (e.g. 17 Apr '26)
+        date_match = re.search(
+            r"NAV:\s*(\d{1,2}\s+[A-Za-z]{3}\s+'\d{2})", text
+        )
+        if date_match:
+            nav_date = self._clean_text(date_match.group(1))
+        else:
+            # Fallback: grab anything after "NAV:" up to the newline
+            fb = re.search(r'NAV:\s*(.+)', text)
+            if fb:
+                nav_date = self._clean_text(fb.group(1))
+
+        # NAV value: first ₹ amount after the "NAV:" block
         idx = text.find('NAV:')
         if idx != -1:
             after = text[idx:]
             rupee_match = re.search(r'₹([\d,]+\.?\d*)', after)
             if rupee_match:
                 nav_value = rupee_match.group(1).replace(',', '')
+
+        logger.debug(f"  NAV extracted -> value={nav_value!r}, date={nav_date!r}")
         return nav_value, nav_date
+
 
     def _extract_rupee_value(self, text, label):
         """Extract a rupee value after a given label."""
@@ -238,8 +252,19 @@ class GrowwScraper:
         page = await context.new_page()
         logger.info(f"Scraping: {url}")
         try:
-            await page.goto(url, wait_until="domcontentloaded", timeout=60000)
-            await asyncio.sleep(5)
+            # Wait for network to be mostly idle so JS-rendered NAV data loads
+            await page.goto(url, wait_until="networkidle", timeout=90000)
+
+            # Explicitly wait for the NAV section to appear in the DOM
+            try:
+                await page.wait_for_selector(
+                    "text=NAV", timeout=15000
+                )
+            except Exception:
+                logger.warning(f"  NAV element did not appear within 15 s for {url} — page may be incomplete")
+
+            # Small safety buffer for React hydration to finish
+            await asyncio.sleep(3)
 
             content = await page.content()
             soup = BeautifulSoup(content, 'html.parser')
