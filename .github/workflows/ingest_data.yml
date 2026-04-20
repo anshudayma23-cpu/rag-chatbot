@@ -49,21 +49,15 @@ jobs:
           pip list | grep -E "chromadb|langchain|playwright|torch|huggingface"
 
       # ---------------------------------------------------------------
-      # Hard-stop if any required secret is missing
+      # Hard-stop if truly secret credentials are missing
+      # CHROMA_TENANT and CHROMA_DATABASE are config values, not secrets —
+      # they are set inline below and do NOT need to be in GitHub Secrets.
       # ---------------------------------------------------------------
       - name: Check Required Secrets
         run: |
           MISSING=0
           if [ -z "${{ secrets.CHROMA_API_KEY }}" ]; then
             echo "❌ CHROMA_API_KEY is missing from GitHub Secrets"
-            MISSING=1
-          fi
-          if [ -z "${{ secrets.CHROMA_TENANT }}" ]; then
-            echo "❌ CHROMA_TENANT is missing from GitHub Secrets"
-            MISSING=1
-          fi
-          if [ -z "${{ secrets.CHROMA_DATABASE }}" ]; then
-            echo "❌ CHROMA_DATABASE is missing from GitHub Secrets"
             MISSING=1
           fi
           if [ -z "${{ secrets.HUGGINGFACE_API_KEY }}" ]; then
@@ -85,8 +79,8 @@ jobs:
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
-          CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
-          CHROMA_DATABASE: ${{ secrets.CHROMA_DATABASE }}
+          CHROMA_TENANT: "78e9de2f-30cd-4324-af3b-9ac9d4882489"
+          CHROMA_DATABASE: "demo"
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
         run: |
           echo "🚀 Starting ingestion pipeline — $(date -u '+%Y-%m-%d %H:%M UTC')"
@@ -100,8 +94,8 @@ jobs:
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
-          CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
-          CHROMA_DATABASE: ${{ secrets.CHROMA_DATABASE }}
+          CHROMA_TENANT: "78e9de2f-30cd-4324-af3b-9ac9d4882489"
+          CHROMA_DATABASE: "demo"
           HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
         run: |
           echo "⚠️  First attempt failed. Waiting 60 s before retry..."
@@ -115,8 +109,8 @@ jobs:
       - name: Verify Chroma Collection Count
         env:
           CHROMA_API_KEY: ${{ secrets.CHROMA_API_KEY }}
-          CHROMA_TENANT: ${{ secrets.CHROMA_TENANT }}
-          CHROMA_DATABASE: ${{ secrets.CHROMA_DATABASE }}
+          CHROMA_TENANT: "78e9de2f-30cd-4324-af3b-9ac9d4882489"
+          CHROMA_DATABASE: "demo"
         run: |
           python - <<'EOF'
           import os, sys
