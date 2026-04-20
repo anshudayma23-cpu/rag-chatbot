@@ -55,18 +55,18 @@ class SharedRAGState:
         Thread-safe: uses a lock so concurrent requests don't double-reload.
         """
         with self._lock:
-            print("\n--- 🔄 Reloading retriever from Chroma (flush old BM25 index) ---")
+            print("\n--- [RELOAD] Flushing old BM25 index, reloading from Chroma ---")
             old_retriever = self.retriever
             try:
                 self.retriever = HybridRetriever()
                 self.last_loaded_at = datetime.utcnow().isoformat() + "Z"
-                print(f"--- ✅ Retriever reloaded at {self.last_loaded_at} ---\n")
+                print(f"--- [RELOAD OK] Retriever reloaded at {self.last_loaded_at} ---\n")
                 # Help GC collect the old BM25 index
                 del old_retriever
             except Exception as e:
                 # Roll back to the old retriever so the server keeps working
                 self.retriever = old_retriever
-                print(f"--- ❌ Reload failed, keeping old retriever: {e} ---\n")
+                print(f"--- [RELOAD FAILED] Keeping old retriever: {e} ---\n")
                 raise
 
     def _load(self):
