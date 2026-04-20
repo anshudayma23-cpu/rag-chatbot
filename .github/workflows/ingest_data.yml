@@ -125,3 +125,28 @@ jobs:
               print("❌ Document count looks too low — ingestion may have partially failed.")
               sys.exit(1)
           EOF
+
+      # ---------------------------------------------------------------
+      # Notify the live server to flush its stale BM25 index and reload
+      # fresh data from Chroma so it immediately serves today's data.
+      #
+      # Set in GitHub Secrets:
+      #   WEBHOOK_URL  = https://your-app.onrender.com  (or ngrok URL for local)
+      #   RELOAD_SECRET = hdfc-rag-reload-2026
+      # ---------------------------------------------------------------
+      - name: Reload Live Server Index
+        if: success() && secrets.WEBHOOK_URL != ''
+        run: |
+          echo "📡 Pinging server to reload index..."
+          HTTP_STATUS=$(curl -s -o /tmp/reload_response.txt -w "%{http_code}" \
+            -X POST "${{ secrets.WEBHOOK_URL }}/api/reload" \
+            -H "Authorization: Bearer ${{ secrets.RELOAD_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --max-time 30)
+          cat /tmp/reload_response.txt
+          if [ "$HTTP_STATUS" -eq 200 ]; then
+            echo "✅ Server index reloaded successfully (HTTP $HTTP_STATUS)"
+          else
+            echo "⚠️  Reload call returned HTTP $HTTP_STATUS — server may need manual restart"
+          fi
+

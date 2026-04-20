@@ -18,6 +18,10 @@ from retrieval.shared_state import shared_state
 app = Flask(__name__, template_folder=".", static_folder=".")
 CORS(app)
 
+# The secret token the GitHub Action must send to trigger a reload.
+# Set RELOAD_SECRET in your .env (and as a GitHub Secret for the Action).
+RELOAD_SECRET = os.environ.get("RELOAD_SECRET", "")
+
 # Store RAG instances by session ID
 rag_instances = {}
 
@@ -38,6 +42,44 @@ def get_rag_for_session(session_id: str = None) -> tuple[RAGSystem, str]:
 def index():
     """Serve the main HTML page."""
     return render_template("index.html")
+
+
+@app.route("/api/status", methods=["GET"])
+def status():
+    """Returns when the in-memory index was last loaded from Chroma."""
+    return jsonify({
+        "initialized": shared_state.initialized,
+        "last_loaded_at": shared_state.last_loaded_at,
+        "active_sessions": len(rag_instances),
+    })
+
+
+@app.route("/api/reload", methods=["POST"])
+def reload_index():
+    """
+    Flush the stale BM25 index and reload all documents from Chroma.
+
+    Protected by a Bearer token — the caller must send:
+        Authorization: Bearer <RELOAD_SECRET>
+
+    The GitHub Action calls this automatically after every successful scrape
+    so the chatbot always serves the latest data without a server restart.
+    """
+    if RELOAD_SECRET:
+        auth = request.headers.get("Authorization", "")
+        if auth != f"Bearer {RELOAD_SECRET}":
+            return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        shared_state.reload()
+        # Invalidate all cached RAG instances so they pick up the new retriever
+        rag_instances.clear()
+        return jsonify({
+            "message": "Index reloaded successfully.",
+            "last_loaded_at": shared_state.last_loaded_at,
+        })
+    except Exception as e:
+        return jsonify({"error": f"Reload failed: {e}"}), 500
 
 
 @app.route("/api/chat", methods=["POST"])
