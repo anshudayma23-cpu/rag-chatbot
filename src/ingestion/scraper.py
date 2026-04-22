@@ -53,26 +53,44 @@ class GrowwScraper:
         nav_value = None
         nav_date = None
 
-        # Groww renders NAV as: "NAV: 17 Apr '26" followed by "₹27.06"
-        # Pattern 1: DD Mon 'YY  (e.g. 17 Apr '26)
+        # Groww renders NAV as: "NAV: 20 Apr '26" or similar
+        # We look for a date-like pattern following "NAV"
+        
+        # Pattern 1: DD Mon 'YY (e.g. 20 Apr '26)
         date_match = re.search(
-            r"NAV:\s*(\d{1,2}\s+[A-Za-z]{3}\s+'\d{2})", text
+            r"NAV:?\s*\(?(\d{1,2}\s+[A-Za-z]{3}\s+'\d{2})\)?", text, re.IGNORECASE
         )
         if date_match:
             nav_date = self._clean_text(date_match.group(1))
         else:
-            # Fallback: grab anything after "NAV:" up to the newline
-            fb = re.search(r'NAV:\s*(.+)', text)
-            if fb:
-                nav_date = self._clean_text(fb.group(1))
+            # Pattern 2: DD-Mon-YYYY or DD-Mon-YY
+            date_match2 = re.search(
+                r"NAV:?\s*\(?(\d{1,2}[-\s][A-Za-z]{3}[-\s]\d{2,4})\)?", text, re.IGNORECASE
+            )
+            if date_match2:
+                nav_date = self._clean_text(date_match2.group(1))
+            else:
+                # Fallback: grab anything after "NAV:" up to the next metric or newline
+                fb = re.search(r'NAV:\s*([^\₹\n]+)', text, re.IGNORECASE)
+                if fb:
+                    nav_date = self._clean_text(fb.group(1))
 
         # NAV value: first ₹ amount after the "NAV:" block
-        idx = text.find('NAV:')
+        idx = text.lower().find('nav:')
         if idx != -1:
-            after = text[idx:]
-            rupee_match = re.search(r'₹([\d,]+\.?\d*)', after)
+            after = text[idx:idx+500] # Check a wider window
+            rupee_match = re.search(r'₹\s*([\d,]+\.?\d*)', after)
             if rupee_match:
                 nav_value = rupee_match.group(1).replace(',', '')
+        
+        # Final fallback if value extraction failed: look for decimal amount after the date
+        if not nav_value and nav_date:
+            date_idx = text.find(nav_date)
+            if date_idx != -1:
+                after_date = text[date_idx + len(nav_date):date_idx + 100]
+                val_match = re.search(r'₹?\s*([\d,]+\.?\d+)', after_date)
+                if val_match:
+                    nav_value = val_match.group(1).replace(',', '')
 
         logger.debug(f"  NAV extracted -> value={nav_value!r}, date={nav_date!r}")
         return nav_value, nav_date
@@ -252,8 +270,8 @@ class GrowwScraper:
         page = await context.new_page()
         logger.info(f"Scraping: {url}")
         try:
-            # Wait for network to be mostly idle so JS-rendered NAV data loads
-            await page.goto(url, wait_until="networkidle", timeout=90000)
+            # Wait for domcontentloaded instead of networkidle to avoid hanging on trackers
+            await page.goto(url, wait_until="domcontentloaded", timeout=60000)
 
             # Explicitly wait for the NAV section to appear in the DOM
             try:

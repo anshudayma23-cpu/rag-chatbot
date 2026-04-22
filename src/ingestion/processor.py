@@ -167,6 +167,25 @@ class DataProcessor:
         existing_hashes = set(self.db_manager.get_existing_hashes())
 
         logger.info(f"Processing {len(raw_data)} funds...")
+        
+        # --- Step 1: Cleanup old structured data ---
+        # To satisfy "remove/delete previous day data", we purge any chunks
+        # that have a source_url before inserting the new batch.
+        # This ensures that if a fund is removed from our list, its stale data
+        # doesn't stick around.
+        if any("structured_data" in entry for entry in raw_data):
+            logger.info("Purging old live NAV records to ensure fresh state...")
+            # We target anything that has a 'section_type' metadata, 
+            # which is unique to our structured fund chunks.
+            try:
+                # Chroma $in filter can sometimes fail on delete, so we delete each explicitly
+                for stype in ["key_metrics", "investment_details", "fund_profile"]:
+                    try:
+                        self.db_manager.delete_by_filter(where={"section_type": stype})
+                    except Exception:
+                        pass
+            except Exception as e:
+                 logger.warning(f"Cleanup failed (possibly empty collection): {e}")
 
         for entry in raw_data:
             scheme_name = entry.get("scheme_name", "Unknown")
