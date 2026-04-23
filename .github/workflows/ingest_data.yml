@@ -136,8 +136,12 @@ jobs:
       #   RELOAD_SECRET = hdfc-rag-reload-2026
       # ---------------------------------------------------------------
       - name: Reload Live Server Index
-        if: success() && secrets.WEBHOOK_URL != ''
+        if: success()
         run: |
+          if [ -z "${{ secrets.WEBHOOK_URL }}" ]; then
+            echo "Skipping reload because WEBHOOK_URL secret is not set."
+            exit 0
+          fi
           echo "📡 Pinging server to reload index..."
           HTTP_STATUS=$(curl -s -o /tmp/reload_response.txt -w "%{http_code}" \
             -X POST "${{ secrets.WEBHOOK_URL }}/api/reload" \
